@@ -20,8 +20,8 @@ export default function LoginPage() {
   const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('desbature@example.com');
+  const [password, setPassword] = useState('12345678');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleAuthAction = async (action: 'login' | 'signup') => {
