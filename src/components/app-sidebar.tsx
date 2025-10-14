@@ -84,9 +84,7 @@ export function AppSidebar() {
   }, [isUserLoading, user, router]);
 
 
-  if (isLoading || !user) {
-    // Show a loading state or nothing while we check for the user and redirect.
-    // The sidebar will be empty until authentication is resolved.
+  if (isLoading || !user || role === 'loading') {
     return (
         <Sidebar>
           <SidebarHeader>
@@ -102,6 +100,16 @@ export function AppSidebar() {
                 <Skeleton className="h-8 w-full" />
             </div>
           </SidebarContent>
+           <SidebarFooter>
+            <Separator className="my-2" />
+            <div className="flex items-center gap-3 p-2">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex flex-col gap-1">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+            </div>
+          </SidebarFooter>
         </Sidebar>
     );
   }
@@ -118,42 +126,26 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {isLoading ? (
-          <div className="p-2 space-y-2">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
-        ) : (
-          <SidebarMenu>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <Link href={item.href}>
-                  <SidebarMenuButton
-                    isActive={pathname.startsWith(item.href)}
-                    tooltip={item.label}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        )}
+        <SidebarMenu>
+          {menuItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <Link href={item.href}>
+                <SidebarMenuButton
+                  isActive={pathname.startsWith(item.href)}
+                  tooltip={item.label}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
         <Separator className="my-2" />
         <div className="flex items-center gap-3 p-2">
-          {isLoading ? (
-            <>
-              <Skeleton className="h-10 w-10 rounded-full" />
-              <div className="flex flex-col gap-1">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-3 w-32" />
-              </div>
-            </>
-          ) : user ? (
+          {user ? (
             <>
               <Avatar>
                 {user.photoURL ? (

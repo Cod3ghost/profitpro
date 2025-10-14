@@ -3,29 +3,36 @@
 
 import { useMemo } from 'react';
 import { useDoc } from '@/firebase/firestore/use-doc';
-import { useUser } from '@/firebase/provider';
-import { doc, getFirestore } from 'firebase/firestore';
+import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'agent' | null;
+export type UserRole = 'admin' | 'agent' | 'loading' | null;
 
 export const useRole = (): { role: UserRole; isLoading: boolean } => {
   const { user, isUserLoading: isAuthLoading } = useUser();
-  const firestore = getFirestore();
+  const firestore = useFirestore();
 
-  const adminRoleRef = useMemo(() => {
+  const adminRoleRef = useMemoFirebase(() => {
     if (!user || user.isAnonymous) return null;
     return doc(firestore, 'roles_admin', user.uid);
   }, [user, firestore]);
 
-  const { data: adminRoleDoc, isLoading: isRoleLoading } = useDoc(adminRoleRef);
+  const { data: adminRoleDoc, isLoading: isRoleDocLoading } = useDoc(adminRoleRef);
   
-  const isLoading = isAuthLoading || (user && !user.isAnonymous && isRoleLoading);
+  const isLoading = isAuthLoading || (!!user && !user.isAnonymous && isRoleDocLoading);
 
   const role = useMemo((): UserRole => {
-    if (isLoading) return null;
+    if (isLoading) return 'loading';
     if (!user) return null;
     if (user.isAnonymous) return 'agent';
-    return adminRoleDoc ? 'admin' : 'agent';
+    
+    // If the adminRoleDoc exists, the user is an admin.
+    if (adminRoleDoc) {
+      return 'admin';
+    }
+    
+    // Otherwise, they are an agent.
+    return 'agent';
   }, [user, adminRoleDoc, isLoading]);
 
   return { role, isLoading };
