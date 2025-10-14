@@ -22,6 +22,7 @@ import {
   DollarSign,
   LogOut,
   Settings,
+  Users,
   User as UserIcon,
 } from 'lucide-react';
 import Logo from './logo';
@@ -57,6 +58,11 @@ export function AppSidebar() {
       label: 'Sales',
       icon: DollarSign,
     },
+    {
+      href: '/users',
+      label: 'Users',
+      icon: Users,
+    },
   ];
 
   const agentMenuItems = [
@@ -72,10 +78,10 @@ export function AppSidebar() {
   const isLoading = isUserLoading || isRoleLoading;
 
   React.useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isUserLoading && !user) {
       router.push('/');
     }
-  }, [isLoading, user, router]);
+  }, [isUserLoading, user, router]);
 
 
   if (isLoading || !user) {
@@ -161,7 +167,7 @@ export function AppSidebar() {
               <div className="flex flex-col overflow-hidden">
                 <span className="font-medium truncate">{user.isAnonymous ? "Sales Agent" : (user.displayName || user.email)}</span>
                 <span className="text-xs text-muted-foreground truncate">
-                  {user.isAnonymous ? "Anonymous User" : role?.toUpperCase()}
+                  {role?.toUpperCase()}
                 </span>
               </div>
             </>

@@ -13,11 +13,18 @@ export type Product = {
 export type Sale = {
   id: string;
   productId: string;
-  productName?: string; // Optional for backwards compatibility with mock
+  productName?: string; 
   quantity: number;
   totalRevenue: number;
   totalCost: number;
   profit: number;
-  saleDate: Timestamp | string; // Support both Timestamp and string for mock data
+  saleDate: Timestamp | string; 
   salesAgentId: string;
 };
+
+export type SalesAgent = {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+}

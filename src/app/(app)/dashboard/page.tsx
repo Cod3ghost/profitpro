@@ -5,9 +5,11 @@ import SalesChart from '@/components/dashboard/sales-chart';
 import TrendAnalysis from '@/components/dashboard/trend-analysis';
 import { useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { useQuery } from '@tanstack/react-query'; // You might need to install this: npm i @tanstack/react-query
+import { useQuery } from '@tanstack/react-query';
 import type { Sale, Product } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useRole } from '@/hooks/use-role';
+import AllSalesTable from '@/components/dashboard/all-sales-table';
 
 async function fetchAllSales(firestore: any): Promise<Sale[]> {
   const usersSnapshot = await getDocs(collection(firestore, 'users'));
@@ -24,6 +26,7 @@ async function fetchAllSales(firestore: any): Promise<Sale[]> {
 
 export default function DashboardPage() {
   const firestore = useFirestore();
+  const { role } = useRole();
 
   const { data: sales, isLoading: salesLoading } = useQuery({
     queryKey: ['allSales'],
@@ -56,6 +59,12 @@ export default function DashboardPage() {
           {salesLoading ? <Skeleton className="h-[430px]" /> : <TrendAnalysis salesData={sales || []} />}
         </div>
       </div>
+      
+      {role === 'admin' && (
+        <div>
+          {salesLoading ? <Skeleton className="h-[430px]" /> : <AllSalesTable salesData={sales || []} />}
+        </div>
+      )}
     </div>
   );
 }
