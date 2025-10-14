@@ -1,3 +1,40 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "1",
+      "description": "A modern wireless mouse",
+      "imageUrl": "https://picsum.photos/seed/product1/400/300",
+      "imageHint": "wireless mouse"
+    },
+    {
+      "id": "2",
+      "description": "A mechanical keyboard with RGB lighting",
+      "imageUrl": "https://picsum.photos/seed/product2/400/300",
+      "imageHint": "mechanical keyboard"
+    },
+    {
+      "id": "3",
+      "description": "A 27-inch 4K monitor",
+      "imageUrl": "https://picsum.photos/seed/product3/400/300",
+      "imageHint": "computer monitor"
+    },
+    {
+      "id": "4",
+      "description": "A pair of noise-cancelling headphones",
+      "imageUrl": "https://picsum.photos/seed/product4/400/300",
+      "imageHint": "headphones"
+    },
+    {
+      "id": "5",
+      "description": "A high-performance webcam",
+      "imageUrl": "https://picsum.photos/seed/product5/400/300",
+      "imageHint": "webcam"
+    },
+    {
+      "id": "6",
+      "description": "An ergonomic office chair",
+      "imageUrl": "https://picsum.photos/seed/product6/400/300",
+      "imageHint": "office chair"
+    }
+  ]
 }
