@@ -1,4 +1,4 @@
-import ProductGrid from '@/components/sales/product-grid';
+import RecordSale from '@/components/sales/record-sale';
 import { mockProducts } from '@/lib/data';
 
 export default function SalesPage() {
@@ -8,9 +8,9 @@ export default function SalesPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-headline tracking-tight">Sales Terminal</h1>
-        <p className="text-muted-foreground">Select a product to record a sale.</p>
+        <p className="text-muted-foreground">Record a new sales transaction.</p>
       </div>
-      <ProductGrid initialProducts={products} />
+      <RecordSale initialProducts={products} />
     </div>
   );
 }
