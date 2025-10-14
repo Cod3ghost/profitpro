@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { useAuth } from '@/firebase';
+import { useEffect, useState } from 'react';
+import { useAuth, useUser } from '@/firebase';
 import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signInAnonymously,
-} from 'firebase/auth';
+  initiateEmailSignIn,
+  initiateEmailSignUp,
+  initiateAnonymousSignIn,
+} from '@/firebase/non-blocking-login';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,51 +15,65 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Logo from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function LoginPage() {
   const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = useState('desbature@example.com');
   const [password, setPassword] = useState('12345678');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleAuthAction = async (action: 'login' | 'signup') => {
-    setIsLoading(true);
-    try {
-      if (action === 'login') {
-        await signInWithEmailAndPassword(auth, email, password);
+  useEffect(() => {
+    if (isUserLoading) return; // Wait until auth state is confirmed
+
+    if (user) {
+      if (user.isAnonymous) {
+        router.push('/sales');
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        router.push('/dashboard');
       }
-      router.push('/dashboard');
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Authentication Failed',
-        description: error.message,
-      });
-    } finally {
-      setIsLoading(false);
     }
-  };
-  
-  const handleAnonymousLogin = async () => {
-    setIsLoading(true);
-    try {
-      await signInAnonymously(auth);
-      router.push('/sales');
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Anonymous Login Failed',
-        description: error.message,
-      });
-    } finally {
+  }, [user, isUserLoading, router]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user, error) => {
       setIsLoading(false);
+      if (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Authentication Failed',
+          description: error.message,
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, [auth, toast]);
+
+  const handleAuthAction = (action: 'login' | 'signup') => {
+    setIsLoading(true);
+    if (action === 'login') {
+      initiateEmailSignIn(auth, email, password);
+    } else {
+      initiateEmailSignUp(auth, email, password);
     }
   };
 
+  const handleAnonymousLogin = () => {
+    setIsLoading(true);
+    initiateAnonymousSignIn(auth);
+  };
+
+  if (isUserLoading || user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+  
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
       <Card className="w-full max-w-md shadow-2xl">

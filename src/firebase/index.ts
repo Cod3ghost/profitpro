@@ -2,7 +2,7 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { Auth, getAuth, initializeAuth, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
@@ -13,6 +13,7 @@ export function initializeFirebase() {
     // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
     // without arguments.
     let firebaseApp;
+    let auth: Auth;
     try {
       // Attempt to initialize via Firebase App Hosting environment variables
       firebaseApp = initializeApp();
@@ -24,18 +25,24 @@ export function initializeFirebase() {
       }
       firebaseApp = initializeApp(firebaseConfig);
     }
+    
+    // Auth must be initialized with persistence to work with non-blocking sign-in
+    auth = initializeAuth(firebaseApp, {
+        persistence: browserLocalPersistence
+    });
 
-    return getSdks(firebaseApp);
+    return getSdks(firebaseApp, auth);
   }
 
   // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  const app = getApp();
+  return getSdks(app, getAuth(app));
 }
 
-export function getSdks(firebaseApp: FirebaseApp) {
+export function getSdks(firebaseApp: FirebaseApp, auth: Auth) {
   return {
     firebaseApp,
-    auth: getAuth(firebaseApp),
+    auth: auth,
     firestore: getFirestore(firebaseApp)
   };
 }
