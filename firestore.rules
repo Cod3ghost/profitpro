@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return {boolean} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the user is the owner of the document based on the provided user ID.
+     * @param {string} userId The user ID to check against the request's authentication UID.
+     * @return {boolean} True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the user is an existing owner and that the resource exists.
+     * @param {string} salesAgentId The user ID to check.
+     * @return {boolean} True if the user is the owner and resource exists, false otherwise.
+     */
+    function isExistingOwner(salesAgentId) {
+        return isOwner(salesAgentId) && exists(resource);
+    }
+
+    /**
+     * @description Checks if the user is an admin by verifying the existence of their UID in the roles_admin collection.
+     * @return {boolean} True if the user is an admin, false otherwise.
+     */
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /**
+     * @description Defines granular access control for product documents.
+     * @path /products/{productId}
+     */
+    match /products/{productId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Defines access control for sales agent profile documents.
+     * @path /users/{salesAgentId}
+     */
+    match /users/{salesAgentId} {
+      allow create: if isSignedIn() && isOwner(salesAgentId);
+      allow get: if isSignedIn() && isOwner(salesAgentId);
+      allow update: if isSignedIn() && isOwner(salesAgentId);
+      allow delete: if false;
+      allow list: if false;
+    }
+
+    /**
+     * @description Defines access control for sales transactions under a sales agent's profile.
+     * @path /users/{salesAgentId}/sales/{saleId}
+     */
+    match /users/{salesAgentId}/sales/{saleId} {
+      allow create: if isSignedIn() && isOwner(salesAgentId);
+      allow get, list: if isSignedIn() && isOwner(salesAgentId);
+      allow update: if isSignedIn() && isOwner(salesAgentId);
+      allow delete: if isSignedIn() && isOwner(salesAgentId);
+    }
+
+    /**
+     * @description Defines access control for the roles_admin collection, which determines admin privileges.
+     * @path /roles_admin/{uid}
+     */
+     match /roles_admin/{uid} {
+      allow create: if false; // TODO: Secure this collection creation to trusted server environment
+      allow get: if false; // No client read access
+      allow update: if false; // Prevent unauthorized updates
+      allow delete: if false; // No client delete access
+      allow list: if false; // Prevent unauthorized listing
+    }
+  }
+}

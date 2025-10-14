@@ -1,0 +1,180 @@
+{
+  "entities": {
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents a product available for sale.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the product."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the product."
+        },
+        "costPrice": {
+          "type": "number",
+          "description": "The cost price of the product."
+        },
+        "sellingPrice": {
+          "type": "number",
+          "description": "The selling price of the product."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "costPrice",
+        "sellingPrice"
+      ]
+    },
+    "Sale": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Sale",
+      "type": "object",
+      "description": "Represents a sales transaction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sale."
+        },
+        "productId": {
+          "type": "string",
+          "description": "Reference to the Product sold. (Relationship: Product 1:N Sale)"
+        },
+        "salesAgentId": {
+          "type": "string",
+          "description": "Reference to the SalesAgent who made the sale. (Relationship: SalesAgent 1:N Sale)"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "The quantity of the product sold."
+        },
+        "saleDate": {
+          "type": "string",
+          "description": "The date of the sale.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "productId",
+        "salesAgentId",
+        "quantity",
+        "saleDate"
+      ]
+    },
+    "SalesAgent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SalesAgent",
+      "type": "object",
+      "description": "Represents a sales agent user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sales agent."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the sales agent."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the sales agent."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the sales agent.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/products/{productId}",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/backend/entities/Product"
+          },
+          "description": "Stores product information. Admins can create, update, and delete products.",
+          "params": [
+            {
+              "name": "productId",
+              "description": "Unique identifier for the product."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{salesAgentId}",
+        "definition": {
+          "entityName": "SalesAgent",
+          "schema": {
+            "$ref": "#/backend/entities/SalesAgent"
+          },
+          "description": "Stores sales agent profile information.",
+          "params": [
+            {
+              "name": "salesAgentId",
+              "description": "Unique identifier for the sales agent.  This is the Firebase Auth UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{salesAgentId}/sales/{saleId}",
+        "definition": {
+          "entityName": "Sale",
+          "schema": {
+            "$ref": "#/backend/entities/Sale"
+          },
+          "description": "Stores sales transaction data, owned by the sales agent. Path-based ownership ensures only the sales agent can create or modify sales records under their ID.",
+          "params": [
+            {
+              "name": "salesAgentId",
+              "description": "Unique identifier for the sales agent. This is the Firebase Auth UID.  Represents ownership of the sales records."
+            },
+            {
+              "name": "saleId",
+              "description": "Unique identifier for the sale transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{uid}",
+        "definition": {
+          "entityName": "roles_admin",
+          "schema": {
+            "$ref": "#/backend/entities/SalesAgent"
+          },
+          "description": "Indicates if a user is an admin. Existence in this collection grants admin privileges.",
+          "params": [
+            {
+              "name": "uid",
+              "description": "The Firebase Auth UID of the administrator."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support a dual-role application (Admin/Sales Agent) with clear separation of concerns and authorization independence. Products are stored in a top-level `products` collection, accessible for viewing by all authenticated users, but only manageable by admins (determined via the `/roles_admin/{uid}` collection). Sales data is structured under each sales agent's profile (`/users/{salesAgentId}/sales/{saleId}`), ensuring straightforward ownership and preventing unauthorized sales recording. This structure supports secure `list` operations (QAPs) by segregating data based on roles and ownership. Authorization Independence is achieved by relying on the user's `uid` and the existence of their `uid` in the `/roles_admin/{uid}` collection, and path-based ownership for sales data, avoiding `get()` calls in security rules."
+  }
+}
