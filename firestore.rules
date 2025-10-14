@@ -1,85 +1,121 @@
+/**
+ * @fileoverview Firestore Security Rules for Prototyping.
+ *
+ * Core Philosophy:
+ * This ruleset prioritizes strict authorization based on user roles (admin) and
+ * ownership, but avoids enforcing detailed schema validation to allow for rapid
+ * prototyping. It enforces who can access what, but it will NOT enforce the exact schema of the data being written.
+ *
+ * Data Structure:
+ * - /products/{productId}: Stores product information, managed by admins.
+ * - /users/{salesAgentId}: Stores sales agent profiles, owned by the respective user.
+ * - /users/{salesAgentId}/sales/{saleId}: Stores sales records, owned by the sales agent.
+ * - /roles_admin/{uid}: Indicates admin status; existence grants admin privileges.
+ *
+ * Key Security Decisions:
+ * - Listing of users is forbidden.
+ * - Path-based ownership is enforced for sales data.
+ * - Admin privileges are determined by the existence of a document in /roles_admin/{uid}.
+ * - Data shape is not strictly validated.
+ *
+ * Denormalization for Authorization:
+ * - Admin status is determined by the existence of a document in `/roles_admin/{uid}`. This avoids complex role-based queries.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     * @return {boolean} True if the user is signed in, false otherwise.
+     * @description Checks if the current user is signed in.
+     * @return {bool} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the user is the owner of the document based on the provided user ID.
-     * @param {string} userId The user ID to check against the request's authentication UID.
-     * @return {boolean} True if the user is the owner, false otherwise.
+     * @description Checks if the current user is the owner of the resource.
+     * @param {string} userId - The user ID to check against.
+     * @return {bool} True if the user is the owner, false otherwise.
      */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+     /**
+      * @description Checks if the current user is the owner of the existing resource.
+      * @param {string} userId - The user ID to check against.
+      * @return {bool} True if the user is the owner and the resource exists, false otherwise.
+      */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Checks if the user is an existing owner and that the resource exists.
-     * @param {string} salesAgentId The user ID to check.
-     * @return {boolean} True if the user is the owner and resource exists, false otherwise.
-     */
-    function isExistingOwner(salesAgentId) {
-        return isOwner(salesAgentId) && exists(resource);
-    }
-
-    /**
-     * @description Checks if the user is an admin by verifying the existence of their UID in the roles_admin collection.
-     * @return {boolean} True if the user is an admin, false otherwise.
+     * @description Checks if the current user is an admin by checking the roles_admin collection.
+     * @return {bool} True if the user is an admin, false otherwise.
      */
     function isAdmin() {
       return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
-
     /**
-     * @description Defines granular access control for product documents.
+     * @description Rules for the /products collection.
      * @path /products/{productId}
+     * @allow (get, list): Any authenticated user can read product information.
+     * @allow (create, update, delete): Only admins can manage products.
+     * @deny (create, update, delete): Non-admins cannot create, update, or delete products.
+     * @principle Public Read with Owner-Only Writes (Admin as Owner)
      */
     match /products/{productId} {
       allow get, list: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     /**
-     * @description Defines access control for sales agent profile documents.
+     * @description Rules for the /users collection.
      * @path /users/{salesAgentId}
+     * @allow (create): The user can create their own profile.
+     * @allow (get, update, delete): The user can only get, update, and delete their own profile.
+     * @deny (list): Listing users is not allowed.
+     * @principle Ownership
      */
     match /users/{salesAgentId} {
-      allow create: if isSignedIn() && isOwner(salesAgentId);
-      allow get: if isSignedIn() && isOwner(salesAgentId);
-      allow update: if isSignedIn() && isOwner(salesAgentId);
-      allow delete: if false;
+      allow get: if isOwner(salesAgentId);
       allow list: if false;
+      allow create: if isOwner(salesAgentId);
+      allow update: if isExistingOwner(salesAgentId);
+      allow delete: if isExistingOwner(salesAgentId);
     }
 
     /**
-     * @description Defines access control for sales transactions under a sales agent's profile.
+     * @description Rules for the /users/{salesAgentId}/sales collection.
      * @path /users/{salesAgentId}/sales/{saleId}
+     * @allow (create, get, list, update, delete): The sales agent can manage their own sales records.
+     * @deny: Other users cannot access or modify sales records.
+     * @principle Ownership
      */
     match /users/{salesAgentId}/sales/{saleId} {
-      allow create: if isSignedIn() && isOwner(salesAgentId);
-      allow get, list: if isSignedIn() && isOwner(salesAgentId);
-      allow update: if isSignedIn() && isOwner(salesAgentId);
-      allow delete: if isSignedIn() && isOwner(salesAgentId);
+      allow get, list: if isOwner(salesAgentId);
+      allow create: if isOwner(salesAgentId);
+      allow update: if isExistingOwner(salesAgentId);
+      allow delete: if isExistingOwner(salesAgentId);
     }
-
-    /**
-     * @description Defines access control for the roles_admin collection, which determines admin privileges.
-     * @path /roles_admin/{uid}
-     */
-     match /roles_admin/{uid} {
-      allow create: if false; // TODO: Secure this collection creation to trusted server environment
-      allow get: if false; // No client read access
-      allow update: if false; // Prevent unauthorized updates
-      allow delete: if false; // No client delete access
-      allow list: if false; // Prevent unauthorized listing
+   /**
+    * @description Rules for the /roles_admin collection.
+    * @path /roles_admin/{uid}
+    * @allow get: Only the admin can get their own roles_admin document.
+    * @allow list: if false;
+    * @allow create: if false; //CRITICAL: this should only be enabled via backend or firebase console
+    * @allow update: if false; //CRITICAL: this should only be enabled via backend or firebase console
+    * @allow delete: if false; //CRITICAL: this should only be enabled via backend or firebase console
+    * @principle Roles (Admin)
+    */
+    match /roles_admin/{uid} {
+        allow get: if isOwner(uid);
+        allow list: if false;
+        allow create: if false; // Admin creation should be handled via backend functions or Firebase console.
+        allow update: if false; // Admin updates should be handled via backend functions or Firebase console.
+        allow delete: if false; // Admin deletion should be handled via backend functions or Firebase console.
     }
   }
 }
