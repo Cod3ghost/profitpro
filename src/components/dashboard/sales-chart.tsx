@@ -1,7 +1,7 @@
 'use client';
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-import { format, parseISO, startOfMonth } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { Sale } from '@/lib/types';
 
@@ -11,7 +11,8 @@ type SalesChartProps = {
 
 export default function SalesChart({ salesData }: SalesChartProps) {
   const monthlyData = salesData.reduce((acc, sale) => {
-    const month = format(startOfMonth(parseISO(sale.date)), 'MMM yyyy');
+    const saleDate = sale.saleDate instanceof Object && 'toDate' in sale.saleDate ? sale.saleDate.toDate() : new Date(sale.saleDate);
+    const month = format(startOfMonth(saleDate), 'MMM yyyy');
     if (!acc[month]) {
       acc[month] = { month, revenue: 0, profit: 0 };
     }

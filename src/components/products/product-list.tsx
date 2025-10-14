@@ -27,19 +27,30 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, writeBatch } from 'firebase/firestore';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useRole } from '@/hooks/use-role';
+import { Skeleton } from '../ui/skeleton';
 
-type ProductListProps = {
-  initialProducts: Product[];
-};
+export default function ProductList() {
+  const firestore = useFirestore();
+  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
+  const { data: products, isLoading } = useCollection<Omit<Product, 'id'>>(productsCollection);
 
-export default function ProductList({ initialProducts }: ProductListProps) {
-  const [products, setProducts] = React.useState<Product[]>(initialProducts);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const { toast } = useToast();
+  const { role } = useRole();
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (role !== 'admin') {
+      toast({ variant: "destructive", title: "Permission Denied", description: "Only admins can manage products." });
+      return;
+    }
+
     const formData = new FormData(e.currentTarget);
     const name = formData.get('name') as string;
     const costPrice = parseFloat(formData.get('costPrice') as string);
@@ -48,16 +59,13 @@ export default function ProductList({ initialProducts }: ProductListProps) {
 
     if (editingProduct) {
       // Update existing product
-      const updatedProducts = products.map((p) =>
-        p.id === editingProduct.id ? { ...p, name, costPrice, sellingPrice, stock } : p
-      );
-      setProducts(updatedProducts);
+      const productRef = doc(firestore, 'products', editingProduct.id);
+      updateDocumentNonBlocking(productRef, { name, costPrice, sellingPrice, stock });
       toast({ title: "Product Updated", description: `${name} has been updated.` });
     } else {
       // Add new product
       const randomImage = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
-      const newProduct: Product = {
-        id: `prod-${Date.now()}`,
+      const newProduct = {
         name,
         costPrice,
         sellingPrice,
@@ -65,7 +73,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
         imageUrl: randomImage.imageUrl,
         imageHint: randomImage.imageHint,
       };
-      setProducts([newProduct, ...products]);
+      addDocumentNonBlocking(productsCollection, newProduct);
       toast({ title: "Product Added", description: `${name} has been added.` });
     }
 
@@ -74,14 +82,16 @@ export default function ProductList({ initialProducts }: ProductListProps) {
   };
 
   const handleEdit = (product: Product) => {
+    if (role !== 'admin') return;
     setEditingProduct(product);
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (productId: string) => {
-    const productName = products.find(p => p.id === productId)?.name;
-    setProducts(products.filter((p) => p.id !== productId));
-    toast({ variant: "destructive", title: "Product Deleted", description: `${productName} has been removed.` });
+  const handleDelete = (product: Product) => {
+    if (role !== 'admin') return;
+    const productRef = doc(firestore, 'products', product.id);
+    deleteDocumentNonBlocking(productRef);
+    toast({ variant: "destructive", title: "Product Deleted", description: `${product.name} has been removed.` });
   };
   
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -89,47 +99,49 @@ export default function ProductList({ initialProducts }: ProductListProps) {
   return (
     <div>
       <div className="flex justify-end mb-4">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setEditingProduct(null)}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
-              <DialogDescription>
-                {editingProduct ? 'Update the details of your product.' : 'Fill in the details for the new product.'}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleFormSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Name</Label>
-                  <Input id="name" name="name" defaultValue={editingProduct?.name || ''} className="col-span-3" required />
+        {role === 'admin' && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setEditingProduct(null)}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Product
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+                <DialogDescription>
+                  {editingProduct ? 'Update the details of your product.' : 'Fill in the details for the new product.'}
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleFormSubmit}>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">Name</Label>
+                    <Input id="name" name="name" defaultValue={editingProduct?.name || ''} className="col-span-3" required />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="costPrice" className="text-right">Cost Price</Label>
+                    <Input id="costPrice" name="costPrice" type="number" step="0.01" defaultValue={editingProduct?.costPrice || ''} className="col-span-3" required />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="sellingPrice" className="text-right">Selling Price</Label>
+                    <Input id="sellingPrice" name="sellingPrice" type="number" step="0.01" defaultValue={editingProduct?.sellingPrice || ''} className="col-span-3" required />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="stock" className="text-right">Stock</Label>
+                    <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock || ''} className="col-span-3" required />
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="costPrice" className="text-right">Cost Price</Label>
-                  <Input id="costPrice" name="costPrice" type="number" step="0.01" defaultValue={editingProduct?.costPrice || ''} className="col-span-3" required />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="sellingPrice" className="text-right">Selling Price</Label>
-                  <Input id="sellingPrice" name="sellingPrice" type="number" step="0.01" defaultValue={editingProduct?.sellingPrice || ''} className="col-span-3" required />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="stock" className="text-right">Stock</Label>
-                  <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock || ''} className="col-span-3" required />
-                </div>
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button type="button" variant="secondary">Cancel</Button>
-                </DialogClose>
-                <Button type="submit" className="bg-accent hover:bg-accent/90">{editingProduct ? 'Save Changes' : 'Create Product'}</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button type="button" variant="secondary">Cancel</Button>
+                  </DialogClose>
+                  <Button type="submit" className="bg-accent hover:bg-accent/90">{editingProduct ? 'Save Changes' : 'Create Product'}</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="rounded-lg border">
@@ -141,11 +153,21 @@ export default function ProductList({ initialProducts }: ProductListProps) {
               <TableHead className="text-right">Cost Price</TableHead>
               <TableHead className="text-right">Selling Price</TableHead>
               <TableHead className="text-right">Stock</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+              {role === 'admin' && <TableHead className="w-[100px]">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {products.map((product) => (
+            {isLoading && Array.from({ length: 5 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-10 w-10 rounded-md"/></TableCell>
+                <TableCell><Skeleton className="h-6 w-32"/></TableCell>
+                <TableCell><Skeleton className="h-6 w-20 ml-auto"/></TableCell>
+                <TableCell><Skeleton className="h-6 w-20 ml-auto"/></TableCell>
+                <TableCell><Skeleton className="h-6 w-16 ml-auto"/></TableCell>
+                {role === 'admin' && <TableCell><div className="flex gap-2 justify-end"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></div></TableCell>}
+              </TableRow>
+            ))}
+            {products && products.map((product) => (
               <TableRow key={product.id}>
                 <TableCell>
                   <Image
@@ -161,20 +183,25 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                 <TableCell className="text-right">{formatCurrency(product.costPrice)}</TableCell>
                 <TableCell className="text-right">{formatCurrency(product.sellingPrice)}</TableCell>
                 <TableCell className="text-right">{product.stock}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(product)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(product.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+                {role === 'admin' && (
+                  <TableCell className="text-right">
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(product)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(product)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
+         {(!products || products.length === 0) && !isLoading && (
+          <div className="text-center p-8 text-muted-foreground">No products found. {role === 'admin' && 'Add a new product to get started.'}</div>
+        )}
       </div>
     </div>
   );

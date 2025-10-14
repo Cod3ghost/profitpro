@@ -3,15 +3,20 @@
 import type { Sale } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, ShoppingCart, TrendingUp } from 'lucide-react';
+import { useMemo } from 'react';
 
 type OverviewCardsProps = {
   salesData: Sale[];
 };
 
 export default function OverviewCards({ salesData }: OverviewCardsProps) {
-  const totalRevenue = salesData.reduce((acc, sale) => acc + sale.totalRevenue, 0);
-  const totalProfit = salesData.reduce((acc, sale) => acc + sale.profit, 0);
-  const totalSales = salesData.length;
+  const { totalRevenue, totalProfit, totalSales } = useMemo(() => {
+    const totalRevenue = salesData.reduce((acc, sale) => acc + sale.totalRevenue, 0);
+    const totalProfit = salesData.reduce((acc, sale) => acc + sale.profit, 0);
+    const totalSales = salesData.length;
+    return { totalRevenue, totalProfit, totalSales };
+  }, [salesData]);
+
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

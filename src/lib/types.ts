@@ -1,3 +1,5 @@
+import { Timestamp } from "firebase/firestore";
+
 export type Product = {
   id: string;
   name: string;
@@ -11,10 +13,11 @@ export type Product = {
 export type Sale = {
   id: string;
   productId: string;
-  productName: string;
+  productName?: string; // Optional for backwards compatibility with mock
   quantity: number;
   totalRevenue: number;
   totalCost: number;
   profit: number;
-  date: string; // ISO string
+  saleDate: Timestamp | string; // Support both Timestamp and string for mock data
+  salesAgentId: string;
 };
