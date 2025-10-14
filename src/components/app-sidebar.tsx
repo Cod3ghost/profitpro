@@ -71,12 +71,33 @@ export function AppSidebar() {
 
   const isLoading = isUserLoading || isRoleLoading;
 
-  if (!user && !isLoading) {
-    // Redirect or show nothing if not authenticated, after loading is complete
-    if (typeof window !== 'undefined') {
+  React.useEffect(() => {
+    if (!isLoading && !user) {
       router.push('/');
     }
-    return null;
+  }, [isLoading, user, router]);
+
+
+  if (isLoading || !user) {
+    // Show a loading state or nothing while we check for the user and redirect.
+    // The sidebar will be empty until authentication is resolved.
+    return (
+        <Sidebar>
+          <SidebarHeader>
+            <div className="flex items-center gap-2">
+              <Logo className="w-8 h-8" />
+              <span className="text-xl font-semibold font-headline">ProfitPro</span>
+            </div>
+          </SidebarHeader>
+          <SidebarContent>
+            <div className="p-2 space-y-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+            </div>
+          </SidebarContent>
+        </Sidebar>
+    );
   }
   
   return (
