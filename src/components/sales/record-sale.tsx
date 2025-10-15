@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { useUser } from '@/hooks/use-supabase-user';
 import { createClient } from '@/lib/supabase/client';
 import { recordSale } from '@/lib/actions-supabase';
@@ -177,18 +177,21 @@ export default function RecordSale() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="product" className="text-right">Product</Label>
-                  <Select name="product" onValueChange={handleProductChange} value={selectedProductId} disabled={productsLoading}>
-                      <SelectTrigger className="col-span-3">
-                          <SelectValue placeholder={productsLoading ? "Loading products..." : "Select a product"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                          {products && products.map(product => (
-                              <SelectItem key={product.id} value={product.id} disabled={product.stock === 0}>
-                                  {product.name} ({product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'})
-                              </SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
+                  <div className="col-span-3">
+                    <Combobox
+                      options={products.map(product => ({
+                        value: product.id,
+                        label: `${product.name} (${product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'})`,
+                        disabled: product.stock === 0
+                      }))}
+                      value={selectedProductId}
+                      onValueChange={handleProductChange}
+                      placeholder={productsLoading ? "Loading products..." : "Search or select a product..."}
+                      searchPlaceholder="Type to search products..."
+                      emptyMessage="No product found."
+                      disabled={productsLoading}
+                    />
+                  </div>
                 </div>
 
                 {selectedProduct && (
