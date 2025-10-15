@@ -21,6 +21,14 @@ export default function AppLayout({
           <span className="font-semibold text-lg font-headline">ProfitPro</span>
         </header>
 
+        {/* Desktop header with menu trigger (always visible) */}
+        <header className="hidden lg:flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 sticky top-0 z-50">
+          <SidebarTrigger className="flex items-center">
+            <Menu className="h-5 w-5" />
+          </SidebarTrigger>
+          <Separator orientation="vertical" className="h-6" />
+        </header>
+
         {/* Main content */}
         <div className="flex flex-col min-h-screen">
           <main className="flex-1 p-4 sm:p-6 lg:p-8">
