@@ -12,21 +12,13 @@ export default function AppLayout({
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        {/* Mobile header with menu trigger */}
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 lg:hidden sticky top-0 z-50">
+        {/* Unified header with menu trigger for all devices */}
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 sticky top-0 z-50">
           <SidebarTrigger className="flex items-center">
             <Menu className="h-5 w-5" />
           </SidebarTrigger>
           <Separator orientation="vertical" className="h-6" />
-          <span className="font-semibold text-lg font-headline">ProfitPro</span>
-        </header>
-
-        {/* Desktop header with menu trigger (always visible) */}
-        <header className="hidden lg:flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 sticky top-0 z-50">
-          <SidebarTrigger className="flex items-center">
-            <Menu className="h-5 w-5" />
-          </SidebarTrigger>
-          <Separator orientation="vertical" className="h-6" />
+          <span className="font-semibold text-lg font-headline lg:hidden">ProfitPro</span>
         </header>
 
         {/* Main content */}
