@@ -18,16 +18,15 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, doc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { useCollection } from '@/firebase/firestore/use-collection';
+import { useUser } from '@/hooks/use-supabase-user';
+import { createClient } from '@/lib/supabase/client';
+import { recordSale } from '@/lib/actions-supabase';
 
 export default function RecordSale() {
-  const firestore = useFirestore();
+  const supabase = createClient();
   const { user } = useUser();
-  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
-  const { data: products, isLoading: productsLoading } = useCollection<Omit<Product, 'id'>>(productsCollection);
-
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = React.useState(true);
   const [selectedProductId, setSelectedProductId] = React.useState<string | undefined>(undefined);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [quantity, setQuantity] = React.useState<number>(1);
@@ -35,6 +34,39 @@ export default function RecordSale() {
   const { toast } = useToast();
 
   const selectedProduct = products?.find(p => p.id === selectedProductId);
+
+  // Fetch products from Supabase
+  React.useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('name');
+
+        if (error) {
+          console.error('Error fetching products:', error);
+        } else {
+          const mappedProducts = data.map((p) => ({
+            id: p.id,
+            name: p.name,
+            costPrice: p.cost_price,
+            sellingPrice: p.selling_price,
+            stock: p.stock,
+            imageUrl: p.image_url,
+            imageHint: p.image_hint,
+          }));
+          setProducts(mappedProducts as Product[]);
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setProductsLoading(false);
+      }
+    }
+
+    fetchProducts();
+  }, [supabase]);
 
   const handleSaleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -57,53 +89,45 @@ export default function RecordSale() {
     }
 
     setIsSubmitting(true);
-    
+
     try {
-        await runTransaction(firestore, async (transaction) => {
-            const productRef = doc(firestore, 'products', selectedProduct.id);
-            const salesAgentRef = doc(firestore, 'users', user.uid);
-            const salesCollectionRef = collection(salesAgentRef, 'sales');
-            const newSaleRef = doc(salesCollectionRef);
+        const result = await recordSale(selectedProduct.id, quantity, user.id);
 
-            const productDoc = await transaction.get(productRef);
-            if (!productDoc.exists()) {
-                throw "Product does not exist.";
+        if (result.success) {
+            toast({
+              title: "Sale Recorded!",
+              description: `${quantity} x ${selectedProduct.name} sold for ${formatCurrency(result.totalRevenue || 0)}.`,
+            });
+
+            setIsDialogOpen(false);
+            setSelectedProductId(undefined);
+            setQuantity(1);
+
+            // Refetch products to update stock
+            const { data } = await supabase
+              .from('products')
+              .select('*')
+              .order('name');
+
+            if (data) {
+              const mappedProducts = data.map((p) => ({
+                id: p.id,
+                name: p.name,
+                costPrice: p.cost_price,
+                sellingPrice: p.selling_price,
+                stock: p.stock,
+                imageUrl: p.image_url,
+                imageHint: p.image_hint,
+              }));
+              setProducts(mappedProducts as Product[]);
             }
-
-            const currentStock = productDoc.data().stock;
-            if (currentStock < quantity) {
-                throw "Insufficient stock.";
-            }
-
-            const newStock = currentStock - quantity;
-            transaction.update(productRef, { stock: newStock });
-
-            const totalRevenue = selectedProduct.sellingPrice * quantity;
-            const totalCost = selectedProduct.costPrice * quantity;
-            const profit = totalRevenue - totalCost;
-
-            const newSale: Omit<Sale, 'id'> = {
-              productId: selectedProduct.id,
-              quantity,
-              totalRevenue,
-              totalCost,
-              profit,
-              saleDate: Timestamp.now(),
-              salesAgentId: user.uid,
-            };
-
-            transaction.set(newSaleRef, newSale);
-        });
-
-        toast({
-          title: "Sale Recorded!",
-          description: `${quantity} x ${selectedProduct.name} sold for ${formatCurrency(selectedProduct.sellingPrice * quantity)}.`,
-        });
-
-        setIsDialogOpen(false);
-        setSelectedProductId(undefined);
-        setQuantity(1);
-
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Sale Failed",
+                description: result.message,
+            });
+        }
     } catch (error: any) {
         console.error("Sale transaction failed: ", error);
         toast({
@@ -116,7 +140,7 @@ export default function RecordSale() {
     }
   };
   
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
 
   const handleProductChange = (productId: string) => {
     setSelectedProductId(productId);

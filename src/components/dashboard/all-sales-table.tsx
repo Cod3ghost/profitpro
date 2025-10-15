@@ -12,9 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { Skeleton } from '../ui/skeleton';
-import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query } from 'firebase/firestore';
-import { useFirestore, useMemoFirebase } from '@/firebase';
+import { createClient } from '@/lib/supabase/client';
 import type { Sale, Product, SalesAgent } from '@/lib/types';
 
 type AllSalesTableProps = {
@@ -22,29 +20,88 @@ type AllSalesTableProps = {
 };
 
 export default function AllSalesTable({ salesData }: AllSalesTableProps) {
-  const firestore = useFirestore();
+  const supabase = createClient();
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [users, setUsers] = React.useState<SalesAgent[]>([]);
+  const [productsLoading, setProductsLoading] = React.useState(true);
+  const [usersLoading, setUsersLoading] = React.useState(true);
 
-  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
-  const { data: products, isLoading: productsLoading } = useCollection<Omit<Product, 'id'>>(productsCollection);
+  // Fetch products from Supabase
+  React.useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*');
 
-  const usersCollection = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: users, isLoading: usersLoading } = useCollection<Omit<SalesAgent, 'id'>>(usersCollection);
+        if (error) {
+          console.error('Error fetching products:', error);
+        } else {
+          const mappedProducts = data.map((p) => ({
+            id: p.id,
+            name: p.name,
+            costPrice: p.cost_price,
+            sellingPrice: p.selling_price,
+            stock: p.stock,
+            imageUrl: p.image_url,
+            imageHint: p.image_hint,
+          }));
+          setProducts(mappedProducts as Product[]);
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setProductsLoading(false);
+      }
+    }
+
+    fetchProducts();
+  }, [supabase]);
+
+  // Fetch users from Supabase
+  React.useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*');
+
+        if (error) {
+          console.error('Error fetching users:', error);
+        } else {
+          const mappedUsers = data.map((u) => ({
+            id: u.id,
+            firstName: u.first_name,
+            lastName: u.last_name,
+            email: u.email,
+          }));
+          setUsers(mappedUsers as SalesAgent[]);
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      } finally {
+        setUsersLoading(false);
+      }
+    }
+
+    fetchUsers();
+  }, [supabase]);
 
   const productsMap = React.useMemo(() => {
     if (!products) return new Map();
     return new Map(products.map(p => [p.id, p]));
   }, [products]);
-  
+
   const usersMap = React.useMemo(() => {
     if (!users) return new Map();
     return new Map(users.map(u => [u.id, u]));
-    }, [users]);
+  }, [users]);
 
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
+
   const formatDate = (date: any) => {
     if (!date) return '';
-    const jsDate = date.toDate ? date.toDate() : new Date(date);
+    const jsDate = date instanceof Date ? date : new Date(date);
     return format(jsDate, 'PPpp');
   }
 
@@ -80,7 +137,11 @@ export default function AllSalesTable({ salesData }: AllSalesTableProps) {
                   <TableCell><Skeleton className="h-6 w-40"/></TableCell>
                 </TableRow>
               ))}
-              {salesData && salesData.sort((a, b) => (b.saleDate as any).toDate() - (a.saleDate as any).toDate()).map((sale) => {
+              {salesData && salesData.sort((a, b) => {
+                const dateA = a.saleDate instanceof Date ? a.saleDate : new Date(a.saleDate);
+                const dateB = b.saleDate instanceof Date ? b.saleDate : new Date(b.saleDate);
+                return dateB.getTime() - dateA.getTime();
+              }).map((sale) => {
                 const product = productsMap.get(sale.productId);
                 const agent = usersMap.get(sale.salesAgentId);
                 return (

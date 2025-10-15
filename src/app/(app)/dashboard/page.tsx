@@ -3,35 +3,43 @@ import { useMemo } from 'react';
 import OverviewCards from '@/components/dashboard/overview-cards';
 import SalesChart from '@/components/dashboard/sales-chart';
 import TrendAnalysis from '@/components/dashboard/trend-analysis';
-import { useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useQuery } from '@tanstack/react-query';
 import type { Sale, Product } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRole } from '@/hooks/use-role';
+import { useRole } from '@/hooks/use-supabase-role';
 import AllSalesTable from '@/components/dashboard/all-sales-table';
+import { createClient } from '@/lib/supabase/client';
 
-async function fetchAllSales(firestore: any): Promise<Sale[]> {
-  const usersSnapshot = await getDocs(collection(firestore, 'users'));
-  const allSales: Sale[] = [];
-  for (const userDoc of usersSnapshot.docs) {
-    const salesCollection = collection(firestore, 'users', userDoc.id, 'sales');
-    const salesSnapshot = await getDocs(salesCollection);
-    salesSnapshot.forEach(saleDoc => {
-      allSales.push({ id: saleDoc.id, ...saleDoc.data() } as Sale);
-    });
+async function fetchAllSales(): Promise<Sale[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('sales')
+    .select('*')
+    .order('sale_date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching sales:', error);
+    return [];
   }
-  return allSales;
+
+  return data.map((s) => ({
+    id: s.id,
+    productId: s.product_id,
+    quantity: s.quantity,
+    totalRevenue: s.total_revenue,
+    totalCost: s.total_cost,
+    profit: s.profit,
+    saleDate: new Date(s.sale_date),
+    salesAgentId: s.sales_agent_id,
+  })) as Sale[];
 }
 
 export default function DashboardPage() {
-  const firestore = useFirestore();
   const { role } = useRole();
 
   const { data: sales, isLoading: salesLoading } = useQuery({
     queryKey: ['allSales'],
-    queryFn: () => fetchAllSales(firestore),
-    enabled: !!firestore,
+    queryFn: fetchAllSales,
   });
 
   return (

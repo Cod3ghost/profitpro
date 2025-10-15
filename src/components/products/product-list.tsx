@@ -27,24 +27,60 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useCollection } from '@/firebase/firestore/use-collection';
-import { useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, writeBatch } from 'firebase/firestore';
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { useRole } from '@/hooks/use-role';
+import { useRole } from '@/hooks/use-supabase-role';
 import { Skeleton } from '../ui/skeleton';
+import { createClient } from '@/lib/supabase/client';
+import { createProduct, updateProduct, deleteProduct } from '@/lib/actions-supabase';
 
 export default function ProductList() {
-  const firestore = useFirestore();
-  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
-  const { data: products, isLoading } = useCollection<Omit<Product, 'id'>>(productsCollection);
-
+  const supabase = createClient();
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const { toast } = useToast();
   const { role } = useRole();
 
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  // Fetch products from Supabase
+  const fetchProducts = React.useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching products:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to load products.',
+        });
+      } else {
+        // Map Supabase data to Product format
+        const mappedProducts = data.map((p) => ({
+          id: p.id,
+          name: p.name,
+          costPrice: p.cost_price,
+          sellingPrice: p.selling_price,
+          stock: p.stock,
+          imageUrl: p.image_url,
+          imageHint: p.image_hint,
+        }));
+        setProducts(mappedProducts as Product[]);
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabase, toast]);
+
+  React.useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (role !== 'admin') {
       toast({ variant: "destructive", title: "Permission Denied", description: "Only admins can manage products." });
@@ -57,28 +93,37 @@ export default function ProductList() {
     const sellingPrice = parseFloat(formData.get('sellingPrice') as string);
     const stock = parseInt(formData.get('stock') as string, 10);
 
-    if (editingProduct) {
-      // Update existing product
-      const productRef = doc(firestore, 'products', editingProduct.id);
-      updateDocumentNonBlocking(productRef, { name, costPrice, sellingPrice, stock });
-      toast({ title: "Product Updated", description: `${name} has been updated.` });
-    } else {
-      // Add new product
-      const randomImage = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
-      const newProduct = {
-        name,
-        costPrice,
-        sellingPrice,
-        stock,
-        imageUrl: randomImage.imageUrl,
-        imageHint: randomImage.imageHint,
-      };
-      addDocumentNonBlocking(productsCollection, newProduct);
-      toast({ title: "Product Added", description: `${name} has been added.` });
-    }
+    try {
+      let result;
+      if (editingProduct) {
+        // Update existing product
+        result = await updateProduct(editingProduct.id, name, costPrice, sellingPrice, stock);
+      } else {
+        // Add new product
+        const randomImage = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
+        result = await createProduct(name, costPrice, sellingPrice, stock, randomImage.imageUrl, randomImage.imageHint);
+      }
 
-    setEditingProduct(null);
-    setIsDialogOpen(false);
+      if (result.success) {
+        toast({ title: editingProduct ? "Product Updated" : "Product Added", description: result.message });
+        setEditingProduct(null);
+        setIsDialogOpen(false);
+        await fetchProducts();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: result.message,
+        });
+      }
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save product.',
+      });
+    }
   };
 
   const handleEdit = (product: Product) => {
@@ -87,14 +132,33 @@ export default function ProductList() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (product: Product) => {
+  const handleDelete = async (product: Product) => {
     if (role !== 'admin') return;
-    const productRef = doc(firestore, 'products', product.id);
-    deleteDocumentNonBlocking(productRef);
-    toast({ variant: "destructive", title: "Product Deleted", description: `${product.name} has been removed.` });
+
+    try {
+      const result = await deleteProduct(product.id);
+
+      if (result.success) {
+        toast({ variant: "destructive", title: "Product Deleted", description: `${product.name} has been removed.` });
+        await fetchProducts();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: result.message,
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete product.',
+      });
+    }
   };
   
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
 
   return (
     <div>

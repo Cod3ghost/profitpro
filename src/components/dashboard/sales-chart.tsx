@@ -25,8 +25,8 @@ export default function SalesChart({ salesData }: SalesChartProps) {
     .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
 
   const formatCurrency = (value: number) => {
-    if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
-    return `$${value}`;
+    if (value >= 1000) return `₦${(value / 1000).toFixed(0)}k`;
+    return `₦${value}`;
   }
 
   return (

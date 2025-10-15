@@ -26,19 +26,20 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import Logo from './logo';
-import { useAuth, useUser } from '@/firebase';
-import { useRole } from '@/hooks/use-role';
+import { useUser } from '@/hooks/use-supabase-user';
+import { useRole } from '@/hooks/use-supabase-role';
 import { Skeleton } from './ui/skeleton';
+import { createClient } from '@/lib/supabase/client';
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const supabase = createClient();
+  const { user, isLoading: isUserLoading } = useUser();
   const { role, isLoading: isRoleLoading } = useRole();
   const router = useRouter();
 
   const handleLogout = async () => {
-    await auth.signOut();
+    await supabase.auth.signOut();
     router.push('/');
   };
 
@@ -82,7 +83,6 @@ export function AppSidebar() {
       router.push('/');
     }
   }, [isUserLoading, user, router]);
-
 
   if (isLoading || !user || role === 'loading') {
     return (
@@ -148,16 +148,16 @@ export function AppSidebar() {
           {user ? (
             <>
               <Avatar>
-                {user.photoURL ? (
-                  <AvatarImage src={user.photoURL} alt={user.displayName || 'User'} />
+                {user.user_metadata?.avatar_url ? (
+                  <AvatarImage src={user.user_metadata.avatar_url} alt={user.user_metadata?.full_name || 'User'} />
                 ) : (
                    <AvatarFallback>
-                    {user.isAnonymous ? <UserIcon/> : (user.email?.charAt(0).toUpperCase() || 'U')}
+                    {user.email?.charAt(0).toUpperCase() || 'U'}
                    </AvatarFallback>
                 )}
               </Avatar>
               <div className="flex flex-col overflow-hidden">
-                <span className="font-medium truncate">{user.isAnonymous ? "Sales Agent" : (user.displayName || user.email)}</span>
+                <span className="font-medium truncate">{user.user_metadata?.full_name || user.email}</span>
                 <span className="text-xs text-muted-foreground truncate">
                   {role?.toUpperCase()}
                 </span>
@@ -166,7 +166,7 @@ export function AppSidebar() {
           ) : null}
 
           <div className="ml-auto flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/settings')}>
               <Settings className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,31 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Logo from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
-import { useUser } from '@/hooks/use-supabase-user';
-import { useRole } from '@/hooks/use-supabase-role';
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, isLoading: isUserLoading } = useUser();
-  const { role, isLoading: isRoleLoading } = useRole();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const supabase = createClient();
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (isUserLoading || isRoleLoading) return;
-
-    if (user && role) {
-      if (role === 'admin') {
-        router.push('/dashboard');
-      } else {
-        router.push('/sales');
-      }
-    }
-  }, [user, role, isUserLoading, isRoleLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +35,6 @@ export default function LoginPage() {
           title: 'Authentication Failed',
           description: error.message,
         });
-        setIsLoading(false);
         return;
       }
 
@@ -75,17 +57,10 @@ export default function LoginPage() {
         title: 'Error',
         description: error.message || 'An unexpected error occurred',
       });
+    } finally {
       setIsLoading(false);
     }
   };
-
-  if (isUserLoading || (user && isRoleLoading)) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <p>Loading...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
