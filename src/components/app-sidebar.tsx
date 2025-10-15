@@ -120,9 +120,6 @@ export function AppSidebar() {
         <div className="flex items-center gap-2">
           <Logo className="w-8 h-8" />
           <span className="text-xl font-semibold font-headline">ProfitPro</span>
-          <div className="ml-auto">
-            <SidebarTrigger />
-          </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
