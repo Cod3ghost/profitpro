@@ -41,12 +41,12 @@ export default function TrendAnalysis({ salesData }: TrendAnalysisProps) {
         <CardTitle>Trend Analysis</CardTitle>
         <CardDescription>Use AI to get insights on your profit trends.</CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col gap-4">
-        <Button onClick={handleAnalysis} disabled={isLoading} className="w-full bg-accent hover:bg-accent/90">
+      <CardContent className="flex flex-col gap-4 h-[calc(100%-5rem)]">
+        <Button onClick={handleAnalysis} disabled={isLoading} className="w-full bg-accent hover:bg-accent/90 flex-shrink-0">
           <Wand2 className="mr-2 h-4 w-4" />
           {isLoading ? 'Analyzing...' : 'Analyze Profit Trends'}
         </Button>
-        <div className="flex-grow rounded-lg border bg-muted/30 p-4 space-y-2 text-sm overflow-y-auto min-h-[200px]">
+        <div className="flex-1 rounded-lg border bg-muted/30 p-4 text-sm overflow-y-auto max-h-[300px]">
           {isLoading && (
             <div className="space-y-2">
               <Skeleton className="h-4 w-full" />
