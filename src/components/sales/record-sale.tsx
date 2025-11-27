@@ -29,7 +29,7 @@ export default function RecordSale() {
   const [productsLoading, setProductsLoading] = React.useState(true);
   const [selectedProductId, setSelectedProductId] = React.useState<string | undefined>(undefined);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [quantity, setQuantity] = React.useState<number>(1);
+  const [quantity, setQuantity] = React.useState<string>('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
 
@@ -79,7 +79,18 @@ export default function RecordSale() {
         return;
     }
 
-    if (quantity > selectedProduct.stock) {
+    const quantityNum = parseInt(quantity, 10);
+
+    if (!quantity || isNaN(quantityNum) || quantityNum < 1) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Quantity",
+        description: "Please enter a quantity greater than 0.",
+      });
+      return;
+    }
+
+    if (quantityNum > selectedProduct.stock) {
       toast({
         variant: "destructive",
         title: "Insufficient Stock",
@@ -91,17 +102,17 @@ export default function RecordSale() {
     setIsSubmitting(true);
 
     try {
-        const result = await recordSale(selectedProduct.id, quantity, user.id);
+        const result = await recordSale(selectedProduct.id, quantityNum, user.id);
 
         if (result.success) {
             toast({
               title: "Sale Recorded!",
-              description: `${quantity} x ${selectedProduct.name} sold for ${formatCurrency(result.totalRevenue || 0)}.`,
+              description: `${quantityNum} x ${selectedProduct.name} sold for ${formatCurrency(result.totalRevenue || 0)}.`,
             });
 
             setIsDialogOpen(false);
             setSelectedProductId(undefined);
-            setQuantity(1);
+            setQuantity('');
 
             // Refetch products to update stock
             const { data } = await supabase
@@ -144,12 +155,15 @@ export default function RecordSale() {
 
   const handleProductChange = (productId: string) => {
     setSelectedProductId(productId);
-    setQuantity(1);
+    setQuantity('');
   }
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value, 10);
-    setQuantity(value > 0 ? value : 1);
+    const value = e.target.value;
+    // Only allow numeric input or empty string
+    if (value === '' || /^\d+$/.test(value)) {
+      setQuantity(value);
+    }
   };
 
   return (
@@ -158,7 +172,7 @@ export default function RecordSale() {
             setIsDialogOpen(isOpen);
             if (!isOpen) {
                 setSelectedProductId(undefined);
-                setQuantity(1);
+                setQuantity('');
             }
         }}>
           <DialogTrigger asChild>
@@ -206,21 +220,22 @@ export default function RecordSale() {
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="quantity" className="text-right">Quantity</Label>
-                            <Input 
-                                id="quantity" 
-                                name="quantity" 
-                                type="number" 
-                                min="1" 
-                                max={selectedProduct.stock} 
+                            <Input
+                                id="quantity"
+                                name="quantity"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="\d*"
+                                placeholder="Enter quantity"
                                 value={quantity}
                                 onChange={handleQuantityChange}
-                                className="col-span-3" 
-                                required 
+                                className="col-span-3"
+                                required
                             />
                         </div>
                          <div className="grid grid-cols-4 items-center gap-4 border-t pt-4 mt-2">
                             <p className="text-right col-span-1 font-medium text-lg">Total:</p>
-                            <p className="col-span-3 text-2xl font-bold text-primary">{formatCurrency(selectedProduct.sellingPrice * (quantity || 0))}</p>
+                            <p className="col-span-3 text-2xl font-bold text-primary">{formatCurrency(selectedProduct.sellingPrice * (parseInt(quantity, 10) || 0))}</p>
                         </div>
                     </>
                 )}
