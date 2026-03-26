@@ -178,22 +178,22 @@ export default function ProductList() {
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleFormSubmit}>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Name</Label>
-                    <Input id="name" name="name" defaultValue={editingProduct?.name || ''} className="col-span-3" required />
+                <div className="space-y-4 py-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="name">Name</Label>
+                    <Input id="name" name="name" defaultValue={editingProduct?.name || ''} required />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="costPrice" className="text-right">Cost Price</Label>
-                    <Input id="costPrice" name="costPrice" type="number" step="0.01" defaultValue={editingProduct?.costPrice || ''} className="col-span-3" required />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="costPrice">Cost Price</Label>
+                    <Input id="costPrice" name="costPrice" type="number" step="0.01" inputMode="decimal" defaultValue={editingProduct?.costPrice || ''} required />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="sellingPrice" className="text-right">Selling Price</Label>
-                    <Input id="sellingPrice" name="sellingPrice" type="number" step="0.01" defaultValue={editingProduct?.sellingPrice || ''} className="col-span-3" required />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sellingPrice">Selling Price</Label>
+                    <Input id="sellingPrice" name="sellingPrice" type="number" step="0.01" inputMode="decimal" defaultValue={editingProduct?.sellingPrice || ''} required />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="stock" className="text-right">Stock</Label>
-                    <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock || ''} className="col-span-3" required />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="stock">Stock</Label>
+                    <Input id="stock" name="stock" type="number" inputMode="numeric" defaultValue={editingProduct?.stock || ''} required />
                   </div>
                 </div>
                 <DialogFooter>
@@ -208,7 +208,7 @@ export default function ProductList() {
         )}
       </div>
 
-      <div className="rounded-lg border">
+      <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

@@ -212,7 +212,7 @@ export default function UserList() {
               </DialogHeader>
               <form onSubmit={handleCreateSubmit}>
                 <div className="space-y-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
                       <Input
@@ -316,7 +316,7 @@ export default function UserList() {
           {selectedUser && (
             <form onSubmit={handleEditSubmit}>
               <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="edit-firstName">First Name</Label>
                     <Input
@@ -407,7 +407,7 @@ export default function UserList() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="rounded-lg border">
+      <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

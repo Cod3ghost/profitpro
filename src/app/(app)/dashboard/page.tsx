@@ -59,7 +59,7 @@ export default function DashboardPage() {
         <OverviewCards salesData={sales || []} />
       )}
 
-      <div className="grid gap-8 lg:grid-cols-3">
+      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         <div className="lg:col-span-2">
           {salesLoading ? <Skeleton className="h-[430px]" /> : <SalesChart salesData={sales || []} />}
         </div>

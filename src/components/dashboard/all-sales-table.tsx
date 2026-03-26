@@ -26,18 +26,12 @@ export default function AllSalesTable({ salesData }: AllSalesTableProps) {
   const [productsLoading, setProductsLoading] = React.useState(true);
   const [usersLoading, setUsersLoading] = React.useState(true);
 
-  // Fetch products from Supabase
   React.useEffect(() => {
     async function fetchProducts() {
       try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*');
-
-        if (error) {
-          console.error('Error fetching products:', error);
-        } else {
-          const mappedProducts = data.map((p) => ({
+        const { data, error } = await supabase.from('products').select('*');
+        if (!error) {
+          setProducts(data.map((p) => ({
             id: p.id,
             name: p.name,
             costPrice: p.cost_price,
@@ -45,8 +39,7 @@ export default function AllSalesTable({ salesData }: AllSalesTableProps) {
             stock: p.stock,
             imageUrl: p.image_url,
             imageHint: p.image_hint,
-          }));
-          setProducts(mappedProducts as Product[]);
+          })) as Product[]);
         }
       } catch (error) {
         console.error('Error fetching products:', error);
@@ -54,28 +47,20 @@ export default function AllSalesTable({ salesData }: AllSalesTableProps) {
         setProductsLoading(false);
       }
     }
-
     fetchProducts();
   }, [supabase]);
 
-  // Fetch users from Supabase
   React.useEffect(() => {
     async function fetchUsers() {
       try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('*');
-
-        if (error) {
-          console.error('Error fetching users:', error);
-        } else {
-          const mappedUsers = data.map((u) => ({
+        const { data, error } = await supabase.from('users').select('*');
+        if (!error) {
+          setUsers(data.map((u) => ({
             id: u.id,
             firstName: u.first_name,
             lastName: u.last_name,
             email: u.email,
-          }));
-          setUsers(mappedUsers as SalesAgent[]);
+          })) as SalesAgent[]);
         }
       } catch (error) {
         console.error('Error fetching users:', error);
@@ -83,29 +68,37 @@ export default function AllSalesTable({ salesData }: AllSalesTableProps) {
         setUsersLoading(false);
       }
     }
-
     fetchUsers();
   }, [supabase]);
 
-  const productsMap = React.useMemo(() => {
-    if (!products) return new Map();
-    return new Map(products.map(p => [p.id, p]));
-  }, [products]);
+  const productsMap = React.useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
+  const usersMap = React.useMemo(() => new Map(users.map(u => [u.id, u])), [users]);
 
-  const usersMap = React.useMemo(() => {
-    if (!users) return new Map();
-    return new Map(users.map(u => [u.id, u]));
-  }, [users]);
-
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
 
   const formatDate = (date: any) => {
     if (!date) return '';
     const jsDate = date instanceof Date ? date : new Date(date);
     return format(jsDate, 'PPpp');
-  }
+  };
+
+  const formatDateShort = (date: any) => {
+    if (!date) return '';
+    const jsDate = date instanceof Date ? date : new Date(date);
+    return format(jsDate, 'dd MMM yy, HH:mm');
+  };
 
   const isLoading = productsLoading || usersLoading;
+
+  const sortedSales = React.useMemo(() =>
+    [...salesData].sort((a, b) => {
+      const dateA = a.saleDate instanceof Date ? a.saleDate : new Date(a.saleDate);
+      const dateB = b.saleDate instanceof Date ? b.saleDate : new Date(b.saleDate);
+      return dateB.getTime() - dateA.getTime();
+    }),
+    [salesData]
+  );
 
   return (
     <Card>
@@ -114,7 +107,43 @@ export default function AllSalesTable({ salesData }: AllSalesTableProps) {
         <CardDescription>A complete log of all sales recorded by every agent.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="rounded-lg border">
+        {/* Mobile card list */}
+        <div className="flex flex-col gap-3 sm:hidden">
+          {isLoading && Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-lg border p-4 space-y-2">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-28" />
+              <div className="flex justify-between pt-1">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </div>
+          ))}
+          {!isLoading && sortedSales.map((sale) => {
+            const product = productsMap.get(sale.productId);
+            const agent = usersMap.get(sale.salesAgentId);
+            return (
+              <div key={sale.id} className="rounded-lg border p-4 space-y-1.5">
+                <p className="font-semibold">{product?.name || 'N/A'}</p>
+                <p className="text-xs text-muted-foreground">{formatDateShort(sale.saleDate)}</p>
+                <div className="flex items-center gap-4 text-sm pt-0.5">
+                  <span className="text-muted-foreground">Qty: <span className="font-medium text-foreground">{sale.quantity}</span></span>
+                  <span className="text-green-600 font-medium">{formatCurrency(sale.totalRevenue)}</span>
+                  <span className="text-blue-600 font-medium">{formatCurrency(sale.profit)}</span>
+                </div>
+                {agent && (
+                  <p className="text-xs text-muted-foreground">{agent.firstName} {agent.lastName}</p>
+                )}
+              </div>
+            );
+          })}
+          {sortedSales.length === 0 && !isLoading && (
+            <div className="text-center py-8 text-muted-foreground">No sales recorded yet.</div>
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden sm:block rounded-lg border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -137,27 +166,23 @@ export default function AllSalesTable({ salesData }: AllSalesTableProps) {
                   <TableCell><Skeleton className="h-6 w-40"/></TableCell>
                 </TableRow>
               ))}
-              {salesData && salesData.sort((a, b) => {
-                const dateA = a.saleDate instanceof Date ? a.saleDate : new Date(a.saleDate);
-                const dateB = b.saleDate instanceof Date ? b.saleDate : new Date(b.saleDate);
-                return dateB.getTime() - dateA.getTime();
-              }).map((sale) => {
+              {sortedSales.map((sale) => {
                 const product = productsMap.get(sale.productId);
                 const agent = usersMap.get(sale.salesAgentId);
                 return (
                   <TableRow key={sale.id}>
                     <TableCell className="font-medium">{product?.name || 'N/A'}</TableCell>
-                    <TableCell>{agent ? `${agent.firstName} ${agent.lastName}`: 'Anonymous'}</TableCell>
+                    <TableCell>{agent ? `${agent.firstName} ${agent.lastName}` : 'Anonymous'}</TableCell>
                     <TableCell className="text-right">{sale.quantity}</TableCell>
                     <TableCell className="text-right text-green-600">{formatCurrency(sale.totalRevenue)}</TableCell>
                     <TableCell className="text-right text-blue-600">{formatCurrency(sale.profit)}</TableCell>
                     <TableCell>{formatDate(sale.saleDate)}</TableCell>
                   </TableRow>
-                )
+                );
               })}
             </TableBody>
           </Table>
-          {(!salesData || salesData.length === 0) && !isLoading && (
+          {sortedSales.length === 0 && !isLoading && (
             <div className="text-center p-8 text-muted-foreground">No sales recorded yet.</div>
           )}
         </div>

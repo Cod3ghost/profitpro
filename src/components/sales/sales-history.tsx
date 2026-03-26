@@ -62,7 +62,6 @@ export default function SalesHistory() {
           .select('*')
           .order('sale_date', { ascending: false });
 
-        // Agents can only see their own sales, admins see all sales
         if (role === 'agent') {
           query = query.eq('sales_agent_id', user.id);
         }
@@ -126,7 +125,7 @@ export default function SalesHistory() {
     fetchProducts();
   }, [supabase]);
 
-  // Fetch users from Supabase (for admin to see who made the sale)
+  // Fetch users (admin only)
   React.useEffect(() => {
     async function fetchUsers() {
       if (role !== 'admin') {
@@ -176,7 +175,13 @@ export default function SalesHistory() {
     if (!date) return '';
     const jsDate = date instanceof Date ? date : new Date(date);
     return format(jsDate, 'PPpp');
-  }
+  };
+
+  const formatDateShort = (date: any) => {
+    if (!date) return '';
+    const jsDate = date instanceof Date ? date : new Date(date);
+    return format(jsDate, 'dd MMM yy, HH:mm');
+  };
 
   const refetchSales = React.useCallback(async () => {
     if (!user || !role) return;
@@ -187,7 +192,6 @@ export default function SalesHistory() {
         .select('*')
         .order('sale_date', { ascending: false });
 
-      // Agents can only see their own sales, admins see all sales
       if (role === 'agent') {
         query = query.eq('sales_agent_id', user.id);
       }
@@ -260,7 +264,55 @@ export default function SalesHistory() {
           <CardDescription>A log of all your recorded sales transactions.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border">
+          {/* Mobile card list — shown on small screens */}
+          <div className="flex flex-col gap-3 sm:hidden">
+            {isLoading && Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-lg border p-4 space-y-2">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-4 w-24" />
+                <div className="flex justify-between pt-1">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              </div>
+            ))}
+            {!isLoading && sales.map((sale) => {
+              const product = productsMap.get(sale.productId);
+              const agent = usersMap.get(sale.salesAgentId);
+              return (
+                <div key={sale.id} className="rounded-lg border p-4 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold leading-tight">{product?.name || sale.productId}</p>
+                    {role === 'admin' && (
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(sale)}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(sale)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{formatDateShort(sale.saleDate)}</p>
+                  <div className="flex items-center gap-4 text-sm pt-0.5">
+                    <span className="text-muted-foreground">Qty: <span className="font-medium text-foreground">{sale.quantity}</span></span>
+                    <span className="text-green-600 font-medium">{formatCurrency(sale.totalRevenue)}</span>
+                    <span className="text-blue-600 font-medium">{formatCurrency(sale.profit)}</span>
+                  </div>
+                  {role === 'admin' && agent && (
+                    <p className="text-xs text-muted-foreground">{agent.firstName} {agent.lastName}</p>
+                  )}
+                </div>
+              );
+            })}
+            {(!sales || sales.length === 0) && !isLoading && (
+              <div className="text-center py-8 text-muted-foreground">No sales recorded yet.</div>
+            )}
+          </div>
+
+          {/* Desktop table — hidden on small screens */}
+          <div className="hidden sm:block rounded-lg border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -313,7 +365,7 @@ export default function SalesHistory() {
                         </TableCell>
                       )}
                     </TableRow>
-                  )
+                  );
                 })}
               </TableBody>
             </Table>
@@ -335,25 +387,23 @@ export default function SalesHistory() {
           </DialogHeader>
           {editingSale && (
             <form onSubmit={handleEditSubmit}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="product" className="text-right">Product</Label>
+              <div className="space-y-4 py-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="product">Product</Label>
                   <Input
                     id="product"
                     value={productsMap.get(editingSale.productId)?.name || 'Unknown'}
-                    className="col-span-3"
                     disabled
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="quantity" className="text-right">Quantity</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="quantity">Quantity</Label>
                   <Input
                     id="quantity"
                     name="quantity"
                     type="number"
                     min="1"
                     defaultValue={editingSale.quantity}
-                    className="col-span-3"
                     required
                   />
                 </div>

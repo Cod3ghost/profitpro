@@ -46,7 +46,7 @@ export default function TrendAnalysis({ salesData }: TrendAnalysisProps) {
           <Wand2 className="mr-2 h-4 w-4" />
           {isLoading ? 'Analyzing...' : 'Analyze Profit Trends'}
         </Button>
-        <div className="flex-1 rounded-lg border bg-muted/30 p-4 text-sm overflow-y-auto max-h-[300px]">
+        <div className="flex-1 rounded-lg border bg-muted/30 p-4 text-sm overflow-y-auto max-h-[240px] sm:max-h-[300px] md:max-h-none">
           {isLoading && (
             <div className="space-y-2">
               <Skeleton className="h-4 w-full" />

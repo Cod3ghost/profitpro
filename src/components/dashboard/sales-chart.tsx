@@ -3,6 +3,7 @@
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { format, startOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { Sale } from '@/lib/types';
 
 type SalesChartProps = {
@@ -10,6 +11,7 @@ type SalesChartProps = {
 };
 
 export default function SalesChart({ salesData }: SalesChartProps) {
+  const isMobile = useIsMobile();
   const monthlyData = salesData.reduce((acc, sale) => {
     const saleDate = sale.saleDate instanceof Object && 'toDate' in sale.saleDate ? sale.saleDate.toDate() : new Date(sale.saleDate);
     const month = format(startOfMonth(saleDate), 'MMM yyyy');
@@ -36,21 +38,22 @@ export default function SalesChart({ salesData }: SalesChartProps) {
         <CardDescription>A monthly overview of your revenue and profit.</CardDescription>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={chartData}>
+        <ResponsiveContainer width="100%" height={isMobile ? 220 : 350}>
+          <BarChart data={chartData} margin={isMobile ? { left: -10, right: 4 } : undefined}>
             <XAxis
               dataKey="month"
               stroke="#888888"
-              fontSize={12}
+              fontSize={isMobile ? 10 : 12}
               tickLine={false}
               axisLine={false}
             />
             <YAxis
               stroke="#888888"
-              fontSize={12}
+              fontSize={isMobile ? 10 : 12}
               tickLine={false}
               axisLine={false}
               tickFormatter={formatCurrency}
+              width={isMobile ? 48 : 60}
             />
             <Tooltip
               contentStyle={{
